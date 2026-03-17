@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import inspect
 import logging
 import os
@@ -27,7 +28,13 @@ def _resolve_handler_name() -> str:
 
 def _run_maybe_async(result: Any) -> Any:
     if inspect.isawaitable(result):
-        return asyncio.run(result)
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(result)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, result).result()
     return result
 
 

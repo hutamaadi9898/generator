@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block body %}
+  <main class="shell">
+    <aside class="hero">
+      <p class="eyebrow">Local-only workflow</p>
+      <h1>{{ app_name }}</h1>
+      <p class="lede">
+        Build a consistent anime character pipeline with Gemini-assisted prompt packs, RunPod generation,
+        synthetic dataset curation, and LoRA-backed renders.
+      </p>
+      <dl class="stack-info">
+        <div>
+          <dt>Base model</dt>
+          <dd>{{ base_model_ref }}</dd>
+        </div>
+        <div>
+          <dt>Prompt helper</dt>
+          <dd>{{ gemini_model }}</dd>
+        </div>
+        <div>
+          <dt>Dataset target</dt>
+          <dd>32 synthetic shots, keep 25-40</dd>
+        </div>
+      </dl>
+    </aside>
+
+    <section class="workspace">
+      {% include "partials/character_form.html" %}
+
+      {% include "partials/dashboard.html" %}
+    </section>
+  </main>
+{% endblock %}

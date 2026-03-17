@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" == "run" ]]; then
+  shift
+  exec /usr/bin/podman run --replace --security-opt label=disable "$@"
+fi
+
+exec /usr/bin/podman "$@"

@@ -1,0 +1,17 @@
+.env
+.env.*
+.flash
+.git
+.github
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.tmp
+.venv
+__pycache__
+app
+build
+data
+dist
+node_modules
+tests

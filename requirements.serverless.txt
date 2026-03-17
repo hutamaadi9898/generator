@@ -1,0 +1,10 @@
+runpod>=1.7,<2
+torch>=2.5.1
+diffusers>=0.35.0
+transformers>=4.48.0
+accelerate>=1.2.1
+safetensors>=0.4.5
+huggingface_hub>=0.29.0
+bitsandbytes>=0.45.0; python_version < "3.14"
+sentencepiece>=0.2.0
+Pillow>=11.0.0

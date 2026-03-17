@@ -1,0 +1,2 @@
+"""Nova image generation worker."""
+

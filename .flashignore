@@ -1,0 +1,14 @@
+.tmp/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+data/
+tests/
+scripts/
+brainstorm_plan.md

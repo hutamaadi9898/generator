@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: anime-lora-lab
+Version: 0.1.0
+Summary: Local FastAPI app for anime character dataset generation and LoRA orchestration.
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: httpx>=0.28.0
+Requires-Dist: jinja2>=3.1.4
+Requires-Dist: pydantic-settings>=2.6.1
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: python-multipart>=0.0.12
+Requires-Dist: sqlalchemy>=2.0.36
+Requires-Dist: uvicorn>=0.32.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.3; extra == "dev"
+Provides-Extra: runpod
+Requires-Dist: runpod-flash==1.7.0; extra == "runpod"

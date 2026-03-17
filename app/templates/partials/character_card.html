@@ -1,0 +1,187 @@
+<article class="panel character-card">
+  <header class="character-header">
+    <div>
+      <p class="eyebrow">{{ character.trigger_token }}</p>
+      <h3>{{ character.name }}</h3>
+    </div>
+    <div class="status-cluster">
+      <span class="pill">{{ character.base_model_ref }}</span>
+      <span class="pill {{ 'pill-ready' if character.training_ready else '' }}">{{ character.kept_image_count }}/25 kept</span>
+    </div>
+  </header>
+
+  <div class="summary-grid">
+    <section>
+      <h4>Character brief</h4>
+      <p>{{ character.visual_traits }}</p>
+      <p class="muted">Default outfit: {{ character.default_outfit }}</p>
+    </section>
+    <section>
+      <h4>Prompt pack</h4>
+      {% if character.canonical_prompt %}
+        <p>{{ character.canonical_prompt }}</p>
+        <p class="muted">Negative: {{ character.negative_prompt }}</p>
+        <p class="tag-row">
+          {% for tag in character.style_tags %}
+            <span>{{ tag }}</span>
+          {% endfor %}
+        </p>
+      {% else %}
+        <p class="muted">No prompt pack yet.</p>
+      {% endif %}
+      <form hx-post="/api/characters/{{ character.id }}/prompt-pack" hx-target="#dashboard" hx-swap="outerHTML">
+        <button type="submit">Generate prompt pack</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="ops-grid">
+    <section class="subpanel">
+      <div class="subpanel-head">
+        <h4>Dataset batch</h4>
+        <span>32 shots</span>
+      </div>
+      <form hx-post="/api/characters/{{ character.id }}/dataset/generate" hx-target="#dashboard" hx-swap="outerHTML" class="mini-grid">
+        <label>
+          <span>Seed base</span>
+          <input type="number" name="seed_base" value="1000">
+        </label>
+        <label>
+          <span>Steps</span>
+          <input type="number" name="steps" value="30">
+        </label>
+        <label>
+          <span>CFG</span>
+          <input type="number" step="0.1" name="cfg" value="6.0">
+        </label>
+        <input type="hidden" name="width" value="1024">
+        <input type="hidden" name="height" value="1024">
+        <button type="submit" {% if not character.canonical_prompt %}disabled{% endif %}>Submit dataset generation</button>
+      </form>
+    </section>
+
+    <section class="subpanel">
+      <div class="subpanel-head">
+        <h4>LoRA training</h4>
+        <span>{{ "ready" if character.training_ready else "waiting for curation" }}</span>
+      </div>
+      <p class="muted">
+        Preset: anime_character_balanced, 1024px, rank 16, alpha 16, 1200 steps.
+      </p>
+      <form hx-post="/api/characters/{{ character.id }}/train" hx-target="#dashboard" hx-swap="outerHTML">
+        <button type="submit" {% if not character.training_ready %}disabled{% endif %}>Submit training run</button>
+      </form>
+      {% if character.latest_lora %}
+        <p class="muted">Latest LoRA: {{ character.latest_lora }}</p>
+      {% endif %}
+    </section>
+
+    <section class="subpanel">
+      <div class="subpanel-head">
+        <h4>Consistent render</h4>
+        <span>LoRA-backed</span>
+      </div>
+      <form hx-post="/api/characters/{{ character.id }}/render" hx-target="#dashboard" hx-swap="outerHTML" class="mini-grid">
+        <label class="wide">
+          <span>Prompt</span>
+          <textarea name="prompt" rows="3" placeholder="{{ character.trigger_token }}, cinematic anime illustration, night alley, intense eye contact" required></textarea>
+        </label>
+        <label class="wide">
+          <span>Negative prompt</span>
+          <input type="text" name="negative_prompt" value="{{ character.negative_prompt }}">
+        </label>
+        <label>
+          <span>Seed</span>
+          <input type="number" name="seed" value="5000">
+        </label>
+        <label>
+          <span>LoRA weight</span>
+          <input type="number" step="0.05" min="0.1" max="1.4" name="lora_weight" value="0.8">
+        </label>
+        <input type="hidden" name="width" value="1024">
+        <input type="hidden" name="height" value="1024">
+        <input type="hidden" name="steps" value="30">
+        <input type="hidden" name="cfg" value="6.0">
+        <button type="submit" {% if not character.latest_lora %}disabled{% endif %}>Submit render</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="media-grid">
+    <section class="subpanel">
+      <div class="subpanel-head">
+        <h4>Dataset images</h4>
+        <span>{{ character.dataset_images|length }} registered</span>
+      </div>
+      <div class="image-grid">
+        {% for image in character.dataset_images %}
+          <form
+            class="image-card"
+            hx-patch="/api/dataset-images/{{ image.id }}"
+            hx-target="#dashboard"
+            hx-swap="outerHTML"
+          >
+            {% if image.public_path.endswith(".png") or image.public_path.endswith(".jpg") or image.public_path.endswith(".jpeg") or image.public_path.endswith(".webp") %}
+              <img src="{{ image.public_path }}" alt="Dataset preview">
+            {% else %}
+              <div class="artifact">{{ image.remote_image_path or image.image_path }}</div>
+            {% endif %}
+            <div class="image-meta">
+              <select name="keep_status">
+                <option value="pending" {% if image.keep_status == "pending" %}selected{% endif %}>Pending</option>
+                <option value="keep" {% if image.keep_status == "keep" %}selected{% endif %}>Keep</option>
+                <option value="discard" {% if image.keep_status == "discard" %}selected{% endif %}>Discard</option>
+              </select>
+              <input type="text" name="caption_tags" value="{{ image.caption_tags|join(', ') }}" placeholder="caption tags">
+              <input type="text" name="notes" value="{{ image.notes }}" placeholder="notes">
+              <button type="submit">Save</button>
+            </div>
+          </form>
+        {% else %}
+          <p class="muted">Completed dataset images will appear here after RunPod jobs finish.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="subpanel">
+      <div class="subpanel-head">
+        <h4>Job ledger</h4>
+        <span>{{ character.generation_jobs|length + character.training_runs|length }} jobs</span>
+      </div>
+      <div class="ledger">
+        {% for run in character.training_runs %}
+          <div class="ledger-item">
+            <div>
+              <strong>train</strong>
+              <p>{{ run.dataset_version }}</p>
+            </div>
+            <div>
+              <span class="pill">{{ run.status }}</span>
+              {% if run.output_lora_path %}
+                <p class="muted">{{ run.output_lora_path }}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+        {% for job in character.generation_jobs %}
+          <div class="ledger-item">
+            <div>
+              <strong>{{ job.kind }}</strong>
+              <p>{{ job.source_shot }}</p>
+              {% if job.preview_path %}
+                <a class="muted" href="{{ job.preview_path }}" target="_blank">preview</a>
+              {% endif %}
+            </div>
+            <div>
+              <span class="pill">{{ job.status }}</span>
+              <p class="muted">seed {{ job.seed }}</p>
+            </div>
+          </div>
+        {% endfor %}
+        {% if not character.training_runs and not character.generation_jobs %}
+          <p class="muted">No RunPod jobs yet.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</article>

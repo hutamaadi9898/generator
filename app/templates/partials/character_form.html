@@ -1,0 +1,51 @@
+<section id="character-form-shell" class="panel form-panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Character brief</p>
+      <h2>New character</h2>
+    </div>
+    <p class="form-note">Fill what you know. Gemini can suggest the blanks.</p>
+  </div>
+
+  {% if brief_flash_message %}
+    <div class="inline-flash">{{ brief_flash_message }}</div>
+  {% endif %}
+
+  <form
+    id="character-form"
+    hx-post="/api/characters"
+    hx-target="#dashboard"
+    hx-swap="outerHTML"
+    class="form-grid"
+  >
+    <label>
+      <span>Name</span>
+      <input type="text" name="name" placeholder="Aoi Kisaragi" value="{{ brief_draft.name }}" required>
+    </label>
+    <label>
+      <span>Trigger token</span>
+      <input type="text" name="trigger_token" placeholder="aoi_kisaragi" value="{{ brief_draft.trigger_token }}" required>
+    </label>
+    <label class="wide">
+      <span>Visual traits</span>
+      <textarea name="visual_traits" rows="4" placeholder="long silver hair, teal eyes, calm expression, slim silhouette, sharp bangs" required>{{ brief_draft.visual_traits }}</textarea>
+    </label>
+    <label class="wide">
+      <span>Default outfit</span>
+      <input type="text" name="default_outfit" placeholder="tailored black school blazer with teal ribbon" value="{{ brief_draft.default_outfit }}" required>
+    </label>
+    <div class="action-row wide">
+      <button
+        type="button"
+        class="ghost"
+        hx-post="/api/characters/autofill"
+        hx-include="#character-form"
+        hx-target="#character-form-shell"
+        hx-swap="outerHTML"
+      >
+        Auto-fill missing with Gemini
+      </button>
+      <button type="submit">Create profile</button>
+    </div>
+  </form>
+</section>

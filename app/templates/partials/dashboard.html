@@ -1,0 +1,31 @@
+<section id="dashboard" class="dashboard">
+  <div class="dashboard-head">
+    <div>
+      <p class="eyebrow">Pipeline state</p>
+      <h2>Character workspace</h2>
+    </div>
+    <button
+      class="ghost"
+      hx-get="/dashboard"
+      hx-target="#dashboard"
+      hx-swap="outerHTML"
+    >
+      Refresh statuses
+    </button>
+  </div>
+
+  {% if flash_message %}
+    <div class="flash">{{ flash_message }}</div>
+  {% endif %}
+
+  {% if not characters %}
+    <div class="empty-state panel">
+      <p>No character profiles yet.</p>
+      <span>Create one from the form above to start the dataset and LoRA workflow.</span>
+    </div>
+  {% endif %}
+
+  {% for character in characters %}
+    {% include "partials/character_card.html" %}
+  {% endfor %}
+</section>

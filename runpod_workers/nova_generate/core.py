@@ -12,6 +12,7 @@ from runpod_workers.common import (
     env_bool,
     flatten_caption_tags,
     hash_text,
+    prepare_local_model_source,
     resolve_model_source,
     slugify,
     timestamp_slug,
@@ -105,26 +106,26 @@ def generate_sync(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _load_pipeline(AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, torch, base_model_ref: str):
-    model_source = resolve_model_source(base_model_ref)
-    if model_source in _PIPELINES:
-        return _PIPELINES[model_source]
-
     dtype_name = os.getenv("NOVA_TORCH_DTYPE", "float16").strip().lower()
     dtype = getattr(torch, dtype_name, torch.float16)
     model_cache = ensure_dir(Path(os.getenv("NOVA_MODEL_CACHE_DIR", "/runpod-volume/models")))
-    source_path = Path(model_source)
+    resolved_model_source = resolve_model_source(base_model_ref)
+    source_path = prepare_local_model_source(base_model_ref, model_cache)
+    cache_key = str(source_path)
+    if cache_key in _PIPELINES:
+        return _PIPELINES[cache_key]
     kwargs = {
         "torch_dtype": dtype,
         "token": os.getenv("HF_TOKEN") or None,
         "use_safetensors": env_bool("NOVA_USE_SAFETENSORS", True),
     }
 
-    if source_path.exists() and source_path.is_file():
+    if source_path.is_file():
         pipeline = AutoPipelineForText2Image.from_single_file(str(source_path), **kwargs)
     elif source_path.exists():
         pipeline = AutoPipelineForText2Image.from_pretrained(str(source_path), **kwargs)
     else:
-        pipeline = AutoPipelineForText2Image.from_pretrained(model_source, cache_dir=str(model_cache), **kwargs)
+        pipeline = AutoPipelineForText2Image.from_pretrained(resolved_model_source, cache_dir=str(model_cache), **kwargs)
 
     pipeline.scheduler = EulerAncestralDiscreteScheduler.from_config(pipeline.scheduler.config)
     try:
@@ -141,7 +142,7 @@ def _load_pipeline(AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, t
         pass
 
     pipeline.to("cuda")
-    _PIPELINES[model_source] = pipeline
+    _PIPELINES[cache_key] = pipeline
     return pipeline
 
 

@@ -217,10 +217,41 @@ def fetch_json(url: str) -> dict[str, Any]:
         return json.load(response)
 
 
-def resolve_civitai_download_url(model_url: str) -> str:
+def _filename_from_content_disposition(value: str) -> str:
+    if not value:
+        return ""
+    star_match = re.search(r"filename\*\s*=\s*[^']*''([^;]+)", value, flags=re.IGNORECASE)
+    if star_match:
+        return urllib.parse.unquote(star_match.group(1)).strip().strip('"')
+    plain_match = re.search(r'filename\s*=\s*"([^"]+)"', value, flags=re.IGNORECASE)
+    if plain_match:
+        return plain_match.group(1).strip()
+    bare_match = re.search(r"filename\s*=\s*([^;]+)", value, flags=re.IGNORECASE)
+    if bare_match:
+        return bare_match.group(1).strip().strip('"')
+    return ""
+
+
+def _infer_download_filename(url: str, *, content_disposition: str = "") -> str:
+    filename = _filename_from_content_disposition(content_disposition)
+    if filename:
+        return filename
+
+    parsed = urllib.parse.urlparse(url)
+    query = urllib.parse.parse_qs(parsed.query)
+    for key in ("response-content-disposition", "b2ContentDisposition"):
+        for value in query.get(key, []):
+            filename = _filename_from_content_disposition(value)
+            if filename:
+                return filename
+
+    return Path(parsed.path).name or "model.bin"
+
+
+def resolve_civitai_download(model_url: str) -> tuple[str, str | None]:
     match = re.search(r"civitai\.com/models/(\d+)", model_url)
     if not match:
-        return model_url
+        return model_url, None
 
     model_id = match.group(1)
     payload = fetch_json(f"https://civitai.com/api/v1/models/{model_id}")
@@ -233,22 +264,58 @@ def resolve_civitai_download_url(model_url: str) -> str:
     download_url = str(file_entry.get("downloadUrl") or "").strip()
     if not download_url:
         raise ValueError(f"Civitai model {model_id} does not expose a downloadable file.")
+    filename = str(file_entry.get("name") or "").strip() or None
+    return download_url, filename
+
+
+def resolve_civitai_download_url(model_url: str) -> str:
+    download_url, _ = resolve_civitai_download(model_url)
     return download_url
 
 
+def _repair_cached_download(target_dir: Path, expected_filename: str) -> Path | None:
+    expected = target_dir / expected_filename
+    if expected.exists():
+        return expected
+
+    legacy_files = [item for item in target_dir.iterdir() if item.is_file()]
+    if len(legacy_files) != 1:
+        return None
+
+    legacy = legacy_files[0]
+    if legacy.name == expected_filename:
+        return legacy
+    if legacy.suffix != ".bin" or expected.suffix == ".bin":
+        return None
+
+    legacy.replace(expected)
+    return expected
+
+
 def download_to_cache(url: str, cache_root: str | Path) -> Path:
-    resolved_url = resolve_civitai_download_url(url)
-    parsed = urllib.parse.urlparse(resolved_url)
-    filename = Path(parsed.path).name or "model.bin"
-    if filename.isdigit():
-        filename = f"{filename}.bin"
+    resolved_url, preferred_filename = resolve_civitai_download(url)
     target_dir = ensure_dir(Path(cache_root) / hash_text(resolved_url, 16))
-    target = target_dir / filename
-    if target.exists():
-        return target
+    if preferred_filename:
+        repaired = _repair_cached_download(target_dir, preferred_filename)
+        if repaired is not None:
+            return repaired
+
     request = urllib.request.Request(resolved_url, headers=_request_headers(resolved_url))
-    with urllib.request.urlopen(request) as response, target.open("wb") as handle:
-        shutil.copyfileobj(response, handle)
+    with urllib.request.urlopen(request) as response:
+        filename = preferred_filename or _infer_download_filename(
+            response.geturl(),
+            content_disposition=response.headers.get("Content-Disposition", ""),
+        )
+        if filename.isdigit():
+            filename = f"{filename}.bin"
+        repaired = _repair_cached_download(target_dir, filename)
+        if repaired is not None:
+            return repaired
+        target = target_dir / filename
+        if target.exists():
+            return target
+        with target.open("wb") as handle:
+            shutil.copyfileobj(response, handle)
     return target
 
 

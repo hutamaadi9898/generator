@@ -5,6 +5,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from runpod_workers import common as common_module
 from runpod_workers.nova_generate import core as nova_generate_core
 from runpod_workers.common import ensure_volume_path, flatten_caption_tags, resolve_model_source
 
@@ -188,3 +189,59 @@ def test_resolve_single_file_pipeline_classes_prefers_sdxl_for_nova(monkeypatch)
     )
 
     assert resolved == [FakeSDXLPipeline, FakeSDPipeline]
+
+
+def test_resolve_civitai_download_includes_named_file(monkeypatch) -> None:
+    monkeypatch.setattr(
+        common_module,
+        "fetch_json",
+        lambda url: {
+            "modelVersions": [
+                {
+                    "baseModel": "Illustrious",
+                    "files": [
+                        {
+                            "name": "novaAnimeXL_ilV170.safetensors",
+                            "downloadUrl": "https://civitai.com/api/download/models/2741698",
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    resolved_url, filename = common_module.resolve_civitai_download("https://civitai.com/models/376130/nova-anime-xl")
+
+    assert resolved_url == "https://civitai.com/api/download/models/2741698"
+    assert filename == "novaAnimeXL_ilV170.safetensors"
+
+
+def test_download_to_cache_repairs_legacy_numeric_bin(monkeypatch, tmp_path: Path) -> None:
+    cache_root = tmp_path / "cache"
+    resolved_url = "https://civitai.com/api/download/models/2741698"
+    target_dir = cache_root / common_module.hash_text(resolved_url, 16)
+    target_dir.mkdir(parents=True)
+    legacy_file = target_dir / "2741698.bin"
+    legacy_file.write_bytes(b"stub")
+
+    monkeypatch.setattr(
+        common_module,
+        "resolve_civitai_download",
+        lambda url: (resolved_url, "novaAnimeXL_ilV170.safetensors"),
+    )
+
+    resolved = common_module.download_to_cache("https://civitai.com/models/376130/nova-anime-xl", cache_root)
+
+    assert resolved == target_dir / "novaAnimeXL_ilV170.safetensors"
+    assert resolved.read_bytes() == b"stub"
+    assert not legacy_file.exists()
+
+
+def test_infer_download_filename_uses_content_disposition() -> None:
+    filename = common_module._infer_download_filename(
+        "https://b2.civitai.com/file/civitai-modelfiles/model/2515131/novaanimeilv17.Gii7.safetensors"
+        "?b2ContentDisposition=attachment%3B+filename%3D%22novaAnimeXL_ilV170.safetensors%22",
+        content_disposition='attachment; filename="novaAnimeXL_ilV170.safetensors"',
+    )
+
+    assert filename == "novaAnimeXL_ilV170.safetensors"

@@ -80,6 +80,7 @@ def endpoint_env(extra: dict[str, str] | None = None) -> dict[str, str]:
         "NOVA_MODEL_SOURCE",
         "NOVA_MODEL_SOURCE_MAP_JSON",
         "NOVA_MODEL_CACHE_DIR",
+        "NOVA_SINGLE_FILE_PIPELINE_CLASS",
         "NOVA_TORCH_DTYPE",
         "NOVA_CIVITAI_BASE_MODEL",
         "SD_SCRIPTS_REPO",

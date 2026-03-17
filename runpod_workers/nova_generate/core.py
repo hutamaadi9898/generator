@@ -121,7 +121,13 @@ def _load_pipeline(AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, t
     }
 
     if source_path.is_file():
-        pipeline = AutoPipelineForText2Image.from_single_file(str(source_path), **kwargs)
+        pipeline = _load_single_file_pipeline(
+            AutoPipelineForText2Image,
+            source_path,
+            kwargs,
+            base_model_ref=base_model_ref,
+            resolved_model_source=resolved_model_source,
+        )
     elif source_path.exists():
         pipeline = AutoPipelineForText2Image.from_pretrained(str(source_path), **kwargs)
     else:
@@ -144,6 +150,66 @@ def _load_pipeline(AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, t
     pipeline.to("cuda")
     _PIPELINES[cache_key] = pipeline
     return pipeline
+
+
+def _load_single_file_pipeline(
+    AutoPipelineForText2Image,
+    source_path: Path,
+    kwargs: dict[str, Any],
+    *,
+    base_model_ref: str,
+    resolved_model_source: str,
+):
+    if hasattr(AutoPipelineForText2Image, "from_single_file"):
+        return AutoPipelineForText2Image.from_single_file(str(source_path), **kwargs)
+
+    last_error: Exception | None = None
+    for pipeline_cls in _resolve_single_file_pipeline_classes(base_model_ref, resolved_model_source):
+        try:
+            return pipeline_cls.from_single_file(str(source_path), **kwargs)
+        except Exception as exc:  # pragma: no cover - depends on installed diffusers version and checkpoint type
+            last_error = exc
+
+    raise RuntimeError(
+        "Unable to load the single-file checkpoint with the available diffusers pipeline classes. "
+        "Set NOVA_SINGLE_FILE_PIPELINE_CLASS to the concrete pipeline class name if needed."
+    ) from last_error
+
+
+def _resolve_single_file_pipeline_classes(base_model_ref: str, resolved_model_source: str) -> list[Any]:
+    import diffusers
+
+    candidates: list[str] = []
+    override = os.getenv("NOVA_SINGLE_FILE_PIPELINE_CLASS", "").strip()
+    if override:
+        candidates.extend(name.strip() for name in override.split(",") if name.strip())
+
+    lowered = " ".join([base_model_ref, resolved_model_source]).lower()
+    if any(token in lowered for token in ("sd3", "stable-diffusion-3")):
+        candidates.extend(["StableDiffusion3Pipeline", "StableDiffusionXLPipeline", "StableDiffusionPipeline"])
+    elif any(token in lowered for token in ("xl", "sdxl", "illustrious", "pony")):
+        candidates.extend(["StableDiffusionXLPipeline", "StableDiffusionPipeline"])
+    else:
+        candidates.extend(["StableDiffusionPipeline", "StableDiffusionXLPipeline"])
+
+    resolved_classes: list[Any] = []
+    seen: set[str] = set()
+    for class_name in candidates:
+        if class_name in seen:
+            continue
+        seen.add(class_name)
+        pipeline_cls = getattr(diffusers, class_name, None)
+        if pipeline_cls is None or not hasattr(pipeline_cls, "from_single_file"):
+            continue
+        resolved_classes.append(pipeline_cls)
+
+    if resolved_classes:
+        return resolved_classes
+
+    raise RuntimeError(
+        "Diffusers does not expose any supported single-file pipeline classes in this environment. "
+        "Upgrade diffusers or use a diffusers model directory instead of a checkpoint file."
+    )
 
 
 def _apply_lora(pipeline, lora_path: str, lora_weight: float) -> None:

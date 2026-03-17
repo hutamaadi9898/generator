@@ -16,6 +16,7 @@ Required endpoint env:
 - `RUNPOD_VOLUME_ROOT`
 - `RUNPOD_VOLUME_NAME`
 - `NOVA_MODEL_SOURCE` or `NOVA_MODEL_SOURCE_MAP_JSON`
+- `NOVA_SINGLE_FILE_PIPELINE_CLASS` optional override for single-file checkpoints, for example `StableDiffusionXLPipeline`
 - `CIVITAI_API_TOKEN` when `NOVA_MODEL_SOURCE` points at a Civitai page or download URL that needs auth
 - `HF_TOKEN` when the base model is gated on Hugging Face
 

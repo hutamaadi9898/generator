@@ -76,6 +76,7 @@ Worker deployment variables:
 - `CIVITAI_API_TOKEN=...` when downloading Nova directly from Civitai inside the worker
 - `HF_TOKEN=...` when using a gated model repo
 - `NOVA_MODEL_SOURCE=...` to map the app alias `nova-anime-xl-illustrious` to a real local path, URL, Civitai model page, Civitai download URL, or Hugging Face repo ID
+- `NOVA_SINGLE_FILE_PIPELINE_CLASS=StableDiffusionXLPipeline` to force the concrete diffusers pipeline class used for `.safetensors` or `.ckpt` single-file checkpoints when auto-detection is not enough
 - `SD_SCRIPTS_REPO=https://github.com/kohya-ss/sd-scripts.git`
 - `SD_SCRIPTS_REF=main`
 

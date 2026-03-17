@@ -4,6 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app \
     HF_HUB_ENABLE_HF_TRANSFER=1 \
     RUNPOD_HANDLER=nova_generate
 
@@ -23,4 +24,4 @@ RUN python -m pip install --upgrade pip setuptools wheel && \
 COPY runpod_workers /app/runpod_workers
 COPY runpod_serverless /app/runpod_serverless
 
-CMD ["python", "-u", "/app/runpod_serverless/main.py"]
+CMD ["python", "-u", "-m", "runpod_serverless.main"]
